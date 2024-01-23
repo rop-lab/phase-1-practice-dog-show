@@ -1,42 +1,129 @@
 <!DOCTYPE html>
-<html lang="en" dir="ltr">
-  <head>
-    <meta charset="utf-8" />
-    <title>WKC Dog Show</title>
-    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css" integrity="sha384-Gn5384xqQ1aoWXA+058RXPxPg6fy4IWvTNh0E263XmFcJlSAwiGgFAW/dAiS6JXm" crossorigin="anonymous" />
-    <script src="./src/index.js"></script>
-    <link rel="stylesheet" href="./assets/style.css" />
-    <link href="https://fonts.googleapis.com/css?family=Kaushan+Script|Open+Sans" rel="stylesheet" />
-  </head>
-  <body>
-    <div class='main flex'>
-      <h1 class='padding margin'>Westminster Kennel Club Dog Show</h1>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dog App</title>
+</head>
+<body>
+  <h1>Dog List</h1>
 
-      <div class="margin flex">
-        <h4 class='center'>Edit Existing Dog</h4>
-        <form id='dog-form' class="padding margin border-round border-grey">
-          <input type="text" name="name" placeholder="dog's name" value="" />
-          <input type="text" name="breed" placeholder="dog's breed" value="" />
-          <input type="text" name="sex" placeholder="dog's sex" value="" />
-          <input type="submit" value="Submit" />
-        </form>
-      </div>
+  <form id="dog-form">
+    <label for="name">Name:</label>
+    <input type="text" id="name" name="name" required>
 
-      <div class="margin flex">
-        <h4 class='center'>Registered Dogs</h4>
-        <table class='margin' border="1">
-          <thead class='blue'>
-            <tr class='padding'>
-              <th class='padding center'>Name</th>
-              <th class='padding center'>Breed</th>
-              <th class='padding center'>Sex</th>
-              <th class='padding center'>Edit Dog</th>
-            </tr>
-          </thead>
-          <tbody id="table-body">
-          </tbody>
-        </table>
-      </div>
-    </div>
-  </body>
+    <label for="breed">Breed:</label>
+    <input type="text" id="breed" name="breed" required>
+
+    <label for="sex">Sex:</label>
+    <input type="text" id="sex" name="sex" required>
+
+    <button type="submit">Submit</button>
+  </form>
+
+  <table id="dog-table">
+    <!-- Dog rows will be dynamically added here -->
+  </table>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', async () => {
+      const dogForm = document.getElementById('dog-form');
+      const dogTable = document.getElementById('dog-table');
+
+      // Function to fetch all dogs
+      const fetchAllDogs = async () => {
+        try {
+          const response = await fetch('http://localhost:3000/dogs');
+          if (!response.ok) {
+            throw new Error(`Failed to fetch dogs. Status: ${response.status}`);
+          }
+          const dogs = await response.json();
+          return dogs;
+        } catch (error) {
+          console.error(error);
+          alert('Failed to fetch dogs. Please try again later.');
+          return [];
+        }
+      };
+
+      // Function to render dogs in the table
+      const renderDogs = (dogs) => {
+        dogTable.innerHTML = '';
+        dogs.forEach((dog) => {
+          const dogRow = document.createElement('tr');
+          dogRow.innerHTML = `
+            <td>${dog.name}</td>
+            <td>${dog.breed}</td>
+            <td>${dog.sex}</td>
+            <td><button class="edit-button" data-id="${dog.id}">Edit</button></td>
+          `;
+          dogTable.appendChild(dogRow);
+        });
+
+        // Attach event listeners to edit buttons
+        const editButtons = document.querySelectorAll('.edit-button');
+        editButtons.forEach((button) => {
+          button.addEventListener('click', () => populateForm(button.dataset.id));
+        });
+      };
+
+      // Function to populate the form with dog's information
+      const populateForm = async (dogId) => {
+        const dogs = await fetchAllDogs();
+        const selectedDog = dogs.find((dog) => dog.id == dogId);
+
+        if (selectedDog) {
+          document.getElementById('name').value = selectedDog.name;
+          document.getElementById('breed').value = selectedDog.breed;
+          document.getElementById('sex').value = selectedDog.sex;
+        }
+      };
+
+      // Event listener for form submission
+      dogForm.addEventListener('submit', async (event) => {
+        event.preventDefault();
+
+        const dogId = dogForm.querySelector('.edit-button').dataset.id;
+        const name = document.getElementById('name').value;
+        const breed = document.getElementById('breed').value;
+        const sex = document.getElementById('sex').value;
+
+        // Validate form input
+        if (name && breed && sex) {
+          // Send PATCH request to update dog information
+          try {
+            const response = await fetch(`http://localhost:3000/dogs/${dogId}`, {
+              method: 'PATCH',
+              headers: {
+                'Content-Type': 'application/json',
+                Accept: 'application/json',
+              },
+              body: JSON.stringify({ name, breed, sex }),
+            });
+
+            if (!response.ok) {
+              throw new Error(`Failed to update dog. Status: ${response.status}`);
+            }
+
+            // Fetch all dogs again to get the most up-to-date information
+            const updatedDogs = await fetchAllDogs();
+            renderDogs(updatedDogs);
+
+            // Clear the form
+            dogForm.reset();
+          } catch (error) {
+            console.error(error);
+            alert('Failed to update dog. Please try again later.');
+          }
+        } else {
+          alert('Please fill in all fields');
+        }
+      });
+
+      // Initial load of all dogs
+      const initialDogs = await fetchAllDogs();
+      renderDogs(initialDogs);
+    });
+  </script>
+</body>
 </html>
